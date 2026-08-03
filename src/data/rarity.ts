@@ -15,6 +15,11 @@ export const RARITY_COLORS: number[] = [
   0xffde1f65, // Unique    crimson
 ];
 
+/** Client/StaticData.cc:9-11 -- yellow, grey, blue, red. */
+export const FLOWER_COLORS: number[] = [
+  0xffffe763, 0xff999999, 0xff689ce2, 0xffec6869,
+];
+
 export const RARITY_NAMES = [
   "Common",
   "Unusual",

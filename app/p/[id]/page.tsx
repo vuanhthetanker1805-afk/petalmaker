@@ -30,25 +30,25 @@ export default function PetalPage({ params }: { params: Promise<{ id: string }> 
   const code = rec ? (tab === "cpp" ? exportCpp(rec.doc) : exportSvg(rec.doc)) : "";
 
   return (
-    <div className="min-h-dvh bg-slate-950 text-slate-200">
-      <header className="flex items-center gap-3 border-b border-slate-800 bg-slate-900 px-4 py-2">
+    <div className="min-h-dvh bg-[var(--color-sunken)] text-[var(--color-ink)]">
+      <header className="flex items-center gap-3 border-b border-[var(--color-rule)] bg-[var(--color-paper-1)] px-4 py-2">
         <Link href="/" className="text-sm font-semibold tracking-tight">
-          flrr<span className="text-sky-400">petal</span>maker
+          flrr<span className="text-[var(--color-accent)]">petal</span>maker
         </Link>
-        <Link href="/gallery" className="ml-auto rounded bg-slate-800 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-700">
+        <Link href="/gallery" className="ml-auto rounded bg-[var(--color-paper-2)] px-2.5 py-1 text-xs text-[var(--color-ink-2)] hover:bg-[var(--color-paper-3)]">
           Gallery
         </Link>
-        <Link href="/" className="rounded bg-sky-700 px-2.5 py-1 text-xs text-white hover:bg-sky-600">
+        <Link href="/" className="rounded bg-[var(--color-accent)] px-2.5 py-1 text-xs text-white hover:bg-[var(--color-accent-dim)]">
           Open editor
         </Link>
       </header>
 
       <main className="mx-auto max-w-3xl p-6">
-        {err && <p className="rounded bg-rose-950 p-3 text-sm text-rose-300">{err}</p>}
-        {!rec && !err && <p className="text-sm text-slate-500">Loading…</p>}
+        {err && <p className="rounded bg-[var(--color-paper-2)] p-3 text-sm text-[var(--color-danger)]">{err}</p>}
+        {!rec && !err && <p className="text-sm text-[var(--color-ink-3)]">Loading…</p>}
         {rec && (
           <>
-            <div className="flex items-center gap-5 rounded-lg border border-slate-800 bg-slate-900 p-5">
+            <div className="flex items-center gap-5 rounded-lg border border-[var(--color-rule)] bg-[var(--color-paper-1)] p-5">
               <PetalPreview doc={rec.doc} mode="tile" size={110} bg="transparent" />
               <PetalPreview doc={rec.doc} mode="clump" size={110} bg="transparent" />
               <div className="flex flex-col gap-1">
@@ -59,7 +59,7 @@ export default function PetalPage({ params }: { params: Promise<{ id: string }> 
                 >
                   {RARITY_NAMES[rec.rarity] ?? "Common"}
                 </span>
-                <p className="mt-1 text-[11px] text-slate-500">
+                <p className="mt-1 text-[11px] text-[var(--color-ink-3)]">
                   radius {rec.doc.radius} · {rec.doc.shapes.length} shapes · {rec.views} views
                 </p>
               </div>
@@ -70,17 +70,17 @@ export default function PetalPage({ params }: { params: Promise<{ id: string }> 
                 <button
                   key={t}
                   onClick={() => setTab(t)}
-                  className={`rounded px-2.5 py-1 text-xs ${tab === t ? "bg-slate-700 text-slate-100" : "text-slate-500 hover:text-slate-300"}`}
+                  className={`rounded px-2.5 py-1 text-xs ${tab === t ? "bg-[var(--color-paper-3)] text-[var(--color-ink)]" : "text-[var(--color-ink-3)] hover:text-[var(--color-ink-2)]"}`}
                 >
                   {t === "cpp" ? "petal code" : "svg"}
                 </button>
               ))}
               <button
                 onClick={() => navigator.clipboard?.writeText(code)}
-                className="ml-auto rounded bg-sky-700 px-3 py-1 text-xs font-medium text-white hover:bg-sky-600"
+                className="ml-auto rounded bg-[var(--color-accent)] px-3 py-1 text-xs font-medium text-white hover:bg-[var(--color-accent-dim)]"
               >copy</button>
             </div>
-            <pre className="mt-2 max-h-[26rem] overflow-auto rounded bg-slate-950 p-4 font-mono text-[11px] leading-relaxed text-slate-200 ring-1 ring-slate-800">
+            <pre className="mt-2 max-h-[26rem] overflow-auto rounded bg-[var(--color-sunken)] p-4 font-mono text-[11px] leading-relaxed text-[var(--color-ink)] ring-1 ring-[var(--color-rule)]">
               {code}
             </pre>
           </>

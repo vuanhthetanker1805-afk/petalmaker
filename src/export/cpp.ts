@@ -1,4 +1,7 @@
 import { toCppHex, deriveStroke } from "@/src/engine/color";
+import {
+  ATTRIBUTE_ORDER, EQUIPMENT_ENUM, MOB_ENUM, RARITY_ENUM, ROTATION_ENUM, STAT_FIELDS,
+} from "@/src/engine/stats";
 import type { Cmd, Doc, Shape } from "@/src/engine/types";
 
 export interface CppOptions {
@@ -122,23 +125,93 @@ export function exportCpp(doc: Doc, opts: Partial<CppOptions> = {}): string {
   return lines.join("\n");
 }
 
-/** The PETAL_DATA table entry to go alongside the draw case. */
+const esc = (s: string) => s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+
+/** float literals keep a decimal point, matching the style of the real table */
+const fl = (n: number) => {
+  const s = trimNum(n, 4);
+  return s.includes(".") ? s : `${s}.0`;
+};
+
+/**
+ * The full PETAL_DATA table entry.
+ *
+ * Only non-default attributes are emitted, which is what keeps the real table
+ * readable, and they are emitted in ATTRIBUTE_ORDER because C++ designated
+ * initializers must follow declaration order.
+ */
 export function exportPetalData(doc: Doc): string {
-  const rarityNames = [
-    "kCommon", "kUnusual", "kRare", "kEpic", "kLegendary",
-    "kMythic", "kUltra", "kSuper", "kOmega", "kUnique",
-  ];
+  const st = doc.stats as unknown as Record<string, number>;
+  const defs = new Map(STAT_FIELDS.map((f) => [f.key, f.def]));
+  const isDefault = (k: string) => {
+    const d = defs.get(k);
+    return d === undefined || Math.abs((st[k] ?? 0) - d) < 1e-9;
+  };
+
+  const attrs: string[] = [];
+  for (const key of ATTRIBUTE_ORDER) {
+    if (key === "poison_damage") {
+      const dmg = st.poison_damage_damage ?? 0;
+      const time = st.poison_damage_time ?? 0;
+      if (dmg === 0 && time === 0) continue;
+      attrs.push(
+        `.poison_damage = {\n            .damage = ${fl(dmg)},\n            .time = ${fl(time)}\n        }`
+      );
+      continue;
+    }
+    // icon_angle lives on the Doc as well, since the artwork previews use it
+    const v = key === "icon_angle" ? doc.iconAngle : st[key];
+    if (key === "icon_angle" ? Math.abs(doc.iconAngle) < 1e-9 : isDefault(key)) continue;
+
+    if (key === "rotation_style")
+      attrs.push(`.rotation_style = PetalAttributes::${ROTATION_ENUM[v] ?? "kPassiveRot"}`);
+    else if (key === "spawns")
+      attrs.push(`.spawns = MobID::${MOB_ENUM[v] ?? "kNumMobs"}`);
+    else if (key === "equipment")
+      attrs.push(`.equipment = EquipmentFlags::${EQUIPMENT_ENUM[v] ?? "kNone"}`);
+    else if (key === "defend_only" || key === "split_projectile" || key === "spawn_count")
+      attrs.push(`.${key} = ${Math.round(v)}`);
+    else attrs.push(`.${key} = ${fl(v)}`);
+  }
+
+  const attrBlock = attrs.length
+    ? `{\n        ${attrs.join(",\n        ")}\n    }`
+    : `{}`;
+
   return [
     `{`,
-    `    .name = "${doc.name}",`,
-    `    .description = "Made with flrrpetalmaker",`,
-    `    .health = 10.0,`,
-    `    .damage = 10.0,`,
-    `    .radius = ${trimNum(doc.radius, 2)},`,
-    `    .reload = 2.5,`,
-    `    .count = ${Math.max(1, doc.count)},`,
-    `    .rarity = RarityID::${rarityNames[doc.rarity] ?? "kCommon"},`,
-    `    .attributes = {${doc.iconAngle ? `\n        .icon_angle = ${trimNum(doc.iconAngle, 3)}\n    ` : ""}}`,
+    `    .name = "${esc(doc.name)}",`,
+    `    .description = "${esc(doc.description || "")}",`,
+    `    .health = ${fl(doc.stats.health)},`,
+    `    .damage = ${fl(doc.stats.damage)},`,
+    `    .radius = ${fl(doc.radius)},`,
+    `    .reload = ${fl(doc.stats.reload)},`,
+    `    .count = ${Math.max(0, Math.round(doc.count))},`,
+    `    .rarity = RarityID::${RARITY_ENUM[doc.rarity] ?? "kCommon"},`,
+    `    .attributes = ${attrBlock}`,
     `},`,
+  ].join("\n");
+}
+
+/** Everything needed to add the petal to the game, in paste order. */
+export function exportAll(doc: Doc, opts: Partial<CppOptions> = {}): string {
+  const id = `k${pascal(doc.name)}`;
+  return [
+    `// ---------------------------------------------------------------------`,
+    `// 1. Shared/StaticDefinitions.hh -- append to the PetalID enum.`,
+    `//    APPEND ONLY: ids are persisted to localStorage by index.`,
+    `// ---------------------------------------------------------------------`,
+    `        ${id},`,
+    ``,
+    `// ---------------------------------------------------------------------`,
+    `// 2. Shared/StaticData.cc -- append to PETAL_DATA, same position as the`,
+    `//    enum entry (the table is positionally initialised).`,
+    `// ---------------------------------------------------------------------`,
+    exportPetalData(doc),
+    ``,
+    `// ---------------------------------------------------------------------`,
+    `// 3. Client/Assets/Petal.cc -- add to draw_static_petal_single.`,
+    `// ---------------------------------------------------------------------`,
+    exportCpp(doc, opts),
   ].join("\n");
 }

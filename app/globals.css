@@ -1,26 +1,75 @@
 @import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@import "../tokens.css";
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-paper: var(--color-paper);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+html, body {
+  overflow-x: clip; /* never `hidden` -- it breaks position: sticky */
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Every number in this app is monospaced so columns of stats line up and
+   digits do not jitter while dragging a slider. */
+.num,
+input[type="number"] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- 8-state control primitives -------------------------------------- */
+
+.ctl {
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-sm);
+  transition: background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out);
+}
+.ctl:hover:not(:disabled), .ctl.is-hover { background: var(--color-paper-3); }
+.ctl:active:not(:disabled), .ctl.is-active { background: var(--color-paper-1); }
+.ctl:disabled, .ctl[aria-disabled="true"], .ctl.is-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ctl[data-state="error"], .ctl.is-error { border-color: var(--color-danger); }
+.ctl[data-state="success"], .ctl.is-success { border-color: var(--color-ok); }
+.ctl[data-state="loading"], .ctl.is-loading { color: var(--color-ink-3); cursor: progress; }
+
+/* focus ring never animates -- it must appear the instant focus lands */
+:where(button, input, select, textarea, [tabindex]):focus-visible,
+.is-focus {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.accent {
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  border-color: var(--color-accent);
+}
+.accent:hover:not(:disabled) { background: var(--color-accent-dim); }
+
+/* thin scrollbars so the rails do not lose 15px to chrome */
+* { scrollbar-width: thin; scrollbar-color: var(--color-paper-3) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--color-paper-3);
+  border-radius: var(--radius-sm);
+}
+*::-webkit-scrollbar-track { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }

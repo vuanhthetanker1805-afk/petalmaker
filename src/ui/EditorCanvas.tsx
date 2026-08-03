@@ -4,6 +4,7 @@ import { GardnCtx } from "@/src/engine/gardnCanvas";
 import { drawShape } from "@/src/engine/render";
 import { moveNode, shapeNodes } from "@/src/engine/types";
 import type { Cmd, Shape } from "@/src/engine/types";
+import { chrome, chromeAlpha } from "./canvasTheme";
 import type { Editor } from "./useEditor";
 
 interface Props { ed: Editor; }
@@ -57,7 +58,7 @@ export default function EditorCanvas({ ed }: Props) {
     const ctx = c.getContext("2d")!;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = "#0f1216";
+    ctx.fillStyle = chrome("--color-sunken");
     ctx.fillRect(0, 0, w, h);
 
     ctx.save();
@@ -68,13 +69,13 @@ export default function EditorCanvas({ ed }: Props) {
       const step = GRID * zoom;
       const nx = Math.ceil(w / 2 / step) + 1, ny = Math.ceil(h / 2 / step) + 1;
       ctx.lineWidth = 1;
-      ctx.strokeStyle = "#1b212a";
+      ctx.strokeStyle = chrome("--color-rule-soft");
       ctx.beginPath();
       for (let i = -nx; i <= nx; i++) { ctx.moveTo(i * step, -h); ctx.lineTo(i * step, h); }
       for (let j = -ny; j <= ny; j++) { ctx.moveTo(-w, j * step); ctx.lineTo(w, j * step); }
       ctx.stroke();
     }
-    ctx.strokeStyle = "#2c3542";
+    ctx.strokeStyle = chrome("--color-rule");
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(-w, 0); ctx.lineTo(w, 0);
@@ -82,7 +83,7 @@ export default function EditorCanvas({ ed }: Props) {
     ctx.stroke();
 
     // the radius guide -- artwork is authored at PETAL_DATA[id].radius
-    ctx.strokeStyle = "#3b4a5f";
+    ctx.strokeStyle = chromeAlpha("--color-accent", 0.45);
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
     ctx.arc(0, 0, doc.radius * zoom, 0, Math.PI * 2);
@@ -102,7 +103,7 @@ export default function EditorCanvas({ ed }: Props) {
       ctx.save();
       ctx.scale(zoom, zoom);
       ctx.lineWidth = 1 / zoom;
-      ctx.strokeStyle = "#4da3ff";
+      ctx.strokeStyle = chrome("--color-accent");
       ctx.setLineDash([3 / zoom, 3 / zoom]);
       ctx.beginPath();
       const gg = new GardnCtx(ctx);
@@ -135,10 +136,10 @@ export default function EditorCanvas({ ed }: Props) {
         ctx.beginPath();
         if (ctrl) ctx.arc(sx, sy, 3.5, 0, Math.PI * 2);
         else ctx.rect(sx - 4, sy - 4, 8, 8);
-        ctx.fillStyle = isSel ? "#ffd24d" : ctrl ? "#8fb7ff" : "#4da3ff";
+        ctx.fillStyle = isSel ? chrome("--color-warn") : ctrl ? chromeAlpha("--color-accent", 0.7) : chrome("--color-accent");
         ctx.fill();
         ctx.lineWidth = 1;
-        ctx.strokeStyle = "#0f1216";
+        ctx.strokeStyle = chrome("--color-sunken");
         ctx.stroke();
       }
     }
@@ -359,23 +360,23 @@ export default function EditorCanvas({ ed }: Props) {
         onPointerCancel={onPointerUp}
         onWheel={onWheel}
       />
-      <div className="pointer-events-none absolute bottom-2 left-2 flex gap-2 text-[11px] text-slate-500">
+      <div className="pointer-events-none absolute bottom-2 left-2 flex gap-2 text-[11px] text-[var(--color-ink-3)]">
         <span>zoom {zoom.toFixed(1)}x</span>
         <span>alt+drag pans</span>
-        {penOpen && <span className="text-amber-400">pen open &mdash; Enter to finish</span>}
+        {penOpen && <span className="text-[var(--color-warn)]">pen open &mdash; Enter to finish</span>}
       </div>
       <div className="absolute right-2 top-2 flex gap-1">
         <button
           onClick={() => setShowGrid((v) => !v)}
-          className={`rounded px-2 py-1 text-[11px] ${showGrid ? "bg-slate-700 text-slate-100" : "bg-slate-800 text-slate-500"}`}
+          className={`rounded px-2 py-1 text-[11px] ${showGrid ? "bg-[var(--color-paper-3)] text-[var(--color-ink)]" : "bg-[var(--color-paper-2)] text-[var(--color-ink-3)]"}`}
         >grid</button>
         <button
           onClick={() => setSnap((v) => !v)}
-          className={`rounded px-2 py-1 text-[11px] ${snap ? "bg-slate-700 text-slate-100" : "bg-slate-800 text-slate-500"}`}
+          className={`rounded px-2 py-1 text-[11px] ${snap ? "bg-[var(--color-paper-3)] text-[var(--color-ink)]" : "bg-[var(--color-paper-2)] text-[var(--color-ink-3)]"}`}
         >snap</button>
         <button
           onClick={() => { setZoom(9); setPan({ x: 0, y: 0 }); }}
-          className="rounded bg-slate-800 px-2 py-1 text-[11px] text-slate-400"
+          className="rounded bg-[var(--color-paper-2)] px-2 py-1 text-[11px] text-[var(--color-ink-3)]"
         >reset view</button>
       </div>
     </div>

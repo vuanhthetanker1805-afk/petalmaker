@@ -1,0 +1,78 @@
+/* Hallmark · macrostructure: Workbench · genre: modern-minimal · theme: Cobalt
+ * tone: technical · anchor hue: cobalt 258°
+ * axes: paper-band=dark · display=grotesk-sans · accent=cool
+ * pre-emit critique: P5 H5 E4 S5 R5 V4
+ */
+
+:root {
+  /* ---- surfaces: graphite, four steps so rails read behind the stage ---- */
+  --color-paper:      oklch(16% 0.012 258);
+  --color-paper-1:    oklch(19.5% 0.014 258);
+  --color-paper-2:    oklch(23% 0.016 258);
+  --color-paper-3:    oklch(27.5% 0.018 258);
+  --color-sunken:     oklch(12.5% 0.010 258);
+
+  /* ---- ink ---- */
+  --color-ink:        oklch(93% 0.008 258);
+  --color-ink-2:      oklch(74% 0.012 258);
+  --color-ink-3:      oklch(58% 0.014 258);
+  --color-ink-4:      oklch(45% 0.014 258);
+
+  /* ---- one signal accent, plus state colours ---- */
+  --color-accent:     oklch(64% 0.175 258);
+  --color-accent-dim: oklch(46% 0.120 258);
+  --color-accent-ink: oklch(97% 0.010 258);
+  --color-warn:       oklch(76% 0.150 78);
+  --color-warn-dim:   oklch(34% 0.070 78);
+  --color-danger:     oklch(66% 0.185 22);
+  --color-ok:         oklch(72% 0.150 152);
+
+  --color-rule:       oklch(30% 0.014 258);
+  --color-rule-soft:  oklch(24% 0.012 258);
+  --color-focus:      oklch(78% 0.150 258);
+
+  /* ---- type: grotesk display, mono for every number ---- */
+  --font-display: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-body:    var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-mono:    var(--font-mono-face), ui-monospace, "SF Mono", Menlo, monospace;
+
+  --text-xs:   0.6875rem;
+  --text-sm:   0.75rem;
+  --text-base: 0.8125rem;
+  --text-md:   0.9375rem;
+  --text-lg:   1.125rem;
+  --text-xl:   1.5rem;
+
+  /* ---- 4pt spacing scale ---- */
+  --space-2xs: 0.125rem;
+  --space-xs:  0.25rem;
+  --space-sm:  0.5rem;
+  --space-md:  0.75rem;
+  --space-lg:  1rem;
+  --space-xl:  1.5rem;
+  --space-2xl: 2rem;
+
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+
+  --rule-hair: 1px;
+
+  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in:     cubic-bezier(0.55, 0, 1, 0.45);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 110ms;
+  --dur-mid:  180ms;
+
+  /* ---- rarity, carried verbatim from Client/StaticData.cc:3-11 ---- */
+  --rarity-0: #7eef6d;
+  --rarity-1: #ffe65d;
+  --rarity-2: #4d52e3;
+  --rarity-3: #861fde;
+  --rarity-4: #de1f1f;
+  --rarity-5: #1fdbde;
+  --rarity-6: #ff2b75;
+  --rarity-7: #f70fb6;
+  --rarity-8: #ffb700;
+  --rarity-9: #de1f65;
+}

@@ -53,7 +53,7 @@ export default function PreviewStrip({ doc }: { doc: Doc }) {
       ] as [Mode, string][]).map(([mode, label]) => (
         <div key={mode} className="flex flex-col items-center gap-1">
           <PetalPreview doc={doc} mode={mode} size={84} />
-          <span className="text-[10px] uppercase tracking-wide text-slate-500">{label}</span>
+          <span className="text-[10px] uppercase tracking-wide text-[var(--color-ink-3)]">{label}</span>
         </div>
       ))}
     </div>

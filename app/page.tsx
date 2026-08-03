@@ -5,27 +5,33 @@ import EditorCanvas from "@/src/ui/EditorCanvas";
 import ExportPanel from "@/src/ui/ExportPanel";
 import Inspector from "@/src/ui/Inspector";
 import Layers from "@/src/ui/Layers";
+import OrbitStage from "@/src/ui/OrbitStage";
 import PreviewStrip from "@/src/ui/Preview";
+import StatsPanel from "@/src/ui/StatsPanel";
 import Toolbar from "@/src/ui/Toolbar";
 import { useEditor } from "@/src/ui/useEditor";
 import { STARTERS } from "@/src/data/starters";
-import type { Doc } from "@/src/engine/types";
+import { migrateDoc } from "@/src/engine/types";
 
 const LS_KEY = "flrrpetalmaker.doc";
+
+type Stage = "draw" | "orbit";
+type Rail = "shape" | "stats";
 
 export default function EditorPage() {
   const ed = useEditor();
   const { doc, setDoc } = ed;
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
-  // a ref, not state: nothing renders from it, and it must not cause a re-render
+  const [stage, setStage] = useState<Stage>("draw");
+  const [rail, setRail] = useState<Rail>("shape");
+  const [exportOpen, setExportOpen] = useState(true);
   const restored = useRef(false);
 
-  // restore the last session (localStorage is unavailable during SSR)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(LS_KEY);
-      if (raw) setDoc(JSON.parse(raw) as Doc, false);
+      if (raw) setDoc(migrateDoc(JSON.parse(raw)), false);
     } catch { /* corrupt or unavailable storage -- start fresh */ }
     restored.current = true;
   }, [setDoc]);
@@ -54,69 +60,147 @@ export default function EditorPage() {
     }
   }, [doc]);
 
+  const tab = (active: boolean) =>
+    `ctl h-7 px-3 text-[11px] font-medium ${active ? "accent" : ""}`;
+
   return (
-    <div className="flex h-dvh flex-col bg-slate-950 text-slate-200">
-      <header className="flex items-center gap-3 border-b border-slate-800 bg-slate-900 px-4 py-2">
-        <h1 className="text-sm font-semibold tracking-tight">
-          flrr<span className="text-sky-400">petal</span>maker
+    <div
+      className="flex h-dvh flex-col"
+      style={{ background: "var(--color-paper)", color: "var(--color-ink)" }}
+    >
+      {/* ---- app bar ---- */}
+      <header
+        className="flex shrink-0 flex-wrap items-center gap-2 px-3 py-2"
+        style={{ background: "var(--color-paper-1)", borderBottom: "1px solid var(--color-rule)" }}
+      >
+        <h1 className="text-[13px] font-semibold tracking-tight">
+          flrr<span style={{ color: "var(--color-accent)" }}>petal</span>maker
         </h1>
-        <span className="hidden text-[11px] text-slate-500 sm:inline">
-          vector petal editor for gardn
+        <span className="hidden text-[11px] sm:inline" style={{ color: "var(--color-ink-4)" }}>
+          petal designer for gardn
         </span>
-        <div className="ml-auto flex items-center gap-2">
+
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
           <select
             onChange={(e) => {
               const s = STARTERS.find((x) => x.name === e.target.value);
-              if (s) setDoc(structuredClone(s.doc));
+              if (s) setDoc(migrateDoc(structuredClone(s.doc)));
               e.target.selectedIndex = 0;
             }}
-            className="rounded bg-slate-800 px-2 py-1 text-xs text-slate-300 outline-none"
+            className="ctl h-7 px-1.5 text-[11px]"
             defaultValue=""
           >
             <option value="" disabled>load example…</option>
             {STARTERS.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
           </select>
           <button
-            onClick={() => { if (confirm("Clear the canvas?")) setDoc((d) => ({ ...d, shapes: [] })); }}
-            className="rounded bg-slate-800 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-700"
+            onClick={() => { if (confirm("Clear the artwork? Stats are kept.")) setDoc((d) => ({ ...d, shapes: [] })); }}
+            className="ctl h-7 px-2.5 text-[11px]"
           >Clear</button>
           <button
             onClick={publish}
             disabled={saving || doc.shapes.length === 0}
-            className="rounded bg-emerald-700 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-600 disabled:opacity-40"
+            className="ctl h-7 px-3 text-[11px] font-medium"
+            data-state={saving ? "loading" : undefined}
+            style={saving ? undefined : { background: "var(--color-ok)", color: "#08140c", borderColor: "var(--color-ok)" }}
           >{saving ? "publishing…" : "Publish"}</button>
-          <Link href="/gallery" className="rounded bg-slate-800 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-700">
+          <Link href="/gallery" className="ctl flex h-7 items-center px-2.5 text-[11px]">
             Gallery
           </Link>
         </div>
       </header>
 
       {savedId && (
-        <div className="flex items-center gap-2 border-b border-emerald-900 bg-emerald-950 px-4 py-1.5 text-xs">
-          <span className="text-emerald-300">Published.</span>
-          <Link href={`/p/${savedId}`} className="text-emerald-200 underline">/p/{savedId}</Link>
+        <div
+          className="flex shrink-0 items-center gap-2 px-3 py-1.5 text-[11px]"
+          style={{ background: "var(--color-paper-2)", borderBottom: "1px solid var(--color-rule)" }}
+        >
+          <span style={{ color: "var(--color-ok)" }}>Published.</span>
+          <Link href={`/p/${savedId}`} className="underline">/p/{savedId}</Link>
           <button
             onClick={() => navigator.clipboard?.writeText(`${location.origin}/p/${savedId}`)}
-            className="rounded bg-emerald-800 px-2 py-0.5 text-[11px]"
+            className="ctl h-5 px-1.5 text-[10px]"
           >copy link</button>
-          <button onClick={() => setSavedId(null)} className="ml-auto text-emerald-500">dismiss</button>
+          <button onClick={() => setSavedId(null)} className="ml-auto" style={{ color: "var(--color-ink-4)" }}>
+            dismiss
+          </button>
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1">
-        <aside className="flex w-60 shrink-0 flex-col overflow-y-auto border-r border-slate-800 bg-slate-900">
-          <Inspector ed={ed} />
-          <div className="border-t border-slate-800"><Layers ed={ed} /></div>
+      {/* ---- workbench: rail | stage | inspector ---- */}
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {/* left rail */}
+        <aside
+          className="flex w-full shrink-0 flex-col lg:w-[17rem] lg:max-w-[17rem]"
+          style={{ background: "var(--color-paper-1)", borderRight: "1px solid var(--color-rule)" }}
+        >
+          <div className="flex shrink-0 gap-1 p-1.5" style={{ borderBottom: "1px solid var(--color-rule)" }}>
+            <button onClick={() => setRail("shape")} className={`${tab(rail === "shape")} flex-1`}>
+              Shape
+            </button>
+            <button onClick={() => setRail("stats")} className={`${tab(rail === "stats")} flex-1`}>
+              Stats
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto lg:max-h-none max-h-[40vh]">
+            {rail === "shape" ? (
+              <>
+                <Inspector ed={ed} />
+                <div style={{ borderTop: "1px solid var(--color-rule)" }}><Layers ed={ed} /></div>
+              </>
+            ) : (
+              <StatsPanel ed={ed} />
+            )}
+          </div>
         </aside>
 
-        <main className="flex min-w-0 flex-1 flex-col">
-          <Toolbar ed={ed} />
-          <div className="min-h-0 flex-1"><EditorCanvas ed={ed} /></div>
-          <div className="border-t border-slate-800 bg-slate-900"><PreviewStrip doc={doc} /></div>
+        {/* centre stage */}
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div
+            className="flex shrink-0 items-center gap-1 px-2 py-1.5"
+            style={{ background: "var(--color-paper-1)", borderBottom: "1px solid var(--color-rule)" }}
+          >
+            <button onClick={() => setStage("draw")} className={tab(stage === "draw")}>Draw</button>
+            <button onClick={() => setStage("orbit")} className={tab(stage === "orbit")}>Orbit</button>
+            <span className="ml-auto text-[10px]" style={{ color: "var(--color-ink-4)" }}>
+              {stage === "draw" ? "V select · P pen · C circle · alt+drag pans" : "live simulation of the in-game orbit"}
+            </span>
+          </div>
+
+          {stage === "draw" ? (
+            <>
+              <Toolbar ed={ed} />
+              <div className="min-h-0 flex-1"><EditorCanvas ed={ed} /></div>
+              <div className="shrink-0" style={{ background: "var(--color-paper-1)", borderTop: "1px solid var(--color-rule)" }}>
+                <PreviewStrip doc={doc} />
+              </div>
+            </>
+          ) : (
+            <div className="min-h-0 flex-1"><OrbitStage doc={doc} /></div>
+          )}
         </main>
 
-        <aside className="flex w-[26rem] shrink-0 flex-col border-l border-slate-800 bg-slate-900">
-          <ExportPanel doc={doc} onImport={(d) => setDoc({ ...d, rarity: doc.rarity })} />
+        {/* right inspector: export drawer */}
+        <aside
+          className="flex shrink-0 flex-col lg:w-[25rem] lg:max-w-[25rem]"
+          style={{ background: "var(--color-paper-1)", borderLeft: "1px solid var(--color-rule)" }}
+        >
+          <button
+            onClick={() => setExportOpen((v) => !v)}
+            className="flex shrink-0 items-center gap-2 px-2 py-1.5 text-left lg:hidden"
+            style={{ borderBottom: "1px solid var(--color-rule)" }}
+            aria-expanded={exportOpen}
+          >
+            <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--color-ink-2)" }}>
+              Export
+            </span>
+            <span className="ml-auto text-[10px]" style={{ color: "var(--color-ink-3)" }}>
+              {exportOpen ? "hide" : "show"}
+            </span>
+          </button>
+          <div className={`min-h-0 flex-1 ${exportOpen ? "flex" : "hidden"} flex-col lg:flex`}>
+            <ExportPanel doc={doc} onImport={(d) => setDoc(migrateDoc({ ...d, rarity: doc.rarity }))} />
+          </div>
         </aside>
       </div>
     </div>

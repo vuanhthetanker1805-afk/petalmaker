@@ -1,3 +1,6 @@
+import { defaultStats, withStatDefaults } from "./stats";
+import type { PetalStats } from "./stats";
+
 /**
  * Document model. Mirrors the primitives available on the gardn Renderer
  * (Client/Render/Renderer.hh:71-91) so every document is exactly expressible
@@ -40,14 +43,21 @@ export interface Shape {
 
 export interface Doc {
   name: string;
+  /** PETAL_DATA[id].description -- shown in the in-game tooltip */
+  description: string;
   /** PETAL_DATA[id].radius -- artwork is authored at this scale. */
   radius: number;
   /** index into RARITY_COLORS / RARITY_NAMES */
   rarity: number;
   /** PETAL_DATA[id].count -- petals per clump, drives the clump preview */
   count: number;
-  /** PetalAttributes::icon_angle */
+  /**
+   * PetalAttributes::icon_angle. Mirrored into `stats.icon_angle` on export --
+   * kept here too because the artwork previews rotate by it.
+   */
   iconAngle: number;
+  /** the other 30 gameplay fields; see src/engine/stats.ts */
+  stats: PetalStats;
   shapes: Shape[];
 }
 
@@ -79,12 +89,35 @@ export const emptyShape = (name: string): Shape => ({
 
 export const emptyDoc = (): Doc => ({
   name: "MyPetal",
+  description: "Made with flrrpetalmaker",
   radius: 10,
   rarity: 0,
   count: 1,
   iconAngle: 0,
+  stats: defaultStats(),
   shapes: [],
 });
+
+/**
+ * Documents saved before stats existed are missing fields; fill them in rather
+ * than dropping the user's artwork on load.
+ */
+export function migrateDoc(raw: unknown): Doc {
+  const d = (raw ?? {}) as Partial<Doc> & { stats?: Partial<PetalStats> };
+  const base = emptyDoc();
+  return {
+    ...base,
+    ...d,
+    name: typeof d.name === "string" ? d.name : base.name,
+    description: typeof d.description === "string" ? d.description : base.description,
+    radius: typeof d.radius === "number" && d.radius > 0 ? d.radius : base.radius,
+    rarity: typeof d.rarity === "number" ? d.rarity : base.rarity,
+    count: typeof d.count === "number" && d.count >= 1 ? d.count : base.count,
+    iconAngle: typeof d.iconAngle === "number" ? d.iconAngle : base.iconAngle,
+    stats: withStatDefaults(d.stats),
+    shapes: Array.isArray(d.shapes) ? d.shapes : [],
+  };
+}
 
 /** Anchor/handle points a shape exposes for direct manipulation. */
 export interface Node {

@@ -1,4 +1,7 @@
 import { deriveStroke } from "@/src/engine/color";
+import {
+  ATTRIBUTE_ORDER, EQUIPMENT_ENUM, MOB_ENUM, RARITY_ENUM, ROTATION_ENUM,
+} from "@/src/engine/stats";
 import { emptyDoc, emptyShape, newId } from "@/src/engine/types";
 import type { Cmd, Doc, Shape } from "@/src/engine/types";
 import { evalExpr, splitArgs } from "./expr";
@@ -35,6 +38,85 @@ function parseColor(src: string, scope: { r: number }): number | null {
   return null;
 }
 
+/**
+ * Pull a PETAL_DATA table entry out of a snippet, if one is present.
+ * Tolerant by design: the user may paste the table entry, the draw case, or
+ * both at once, in any order.
+ */
+function parsePetalData(src: string, doc: Doc, warnings: string[]) {
+  const st = doc.stats as unknown as Record<string, number>;
+  const num = (re: RegExp): number | null => {
+    const m = src.match(re);
+    if (!m) return null;
+    const v = parseFloat(m[1]);
+    return isFinite(v) ? v : null;
+  };
+
+  const name = src.match(/\.name\s*=\s*"((?:[^"\\]|\\.)*)"/);
+  if (name) doc.name = name[1].replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+  const desc = src.match(/\.description\s*=\s*"((?:[^"\\]|\\.)*)"/);
+  if (desc) doc.description = desc[1].replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+
+  const rarity = src.match(/\.rarity\s*=\s*RarityID\s*::\s*(\w+)/);
+  if (rarity) {
+    const i = RARITY_ENUM.indexOf(rarity[1]);
+    if (i >= 0) doc.rarity = i;
+    else warnings.push(`unknown rarity ${rarity[1]}`);
+  }
+
+  const radius = num(/\.radius\s*=\s*(-?[\d.]+)/);
+  if (radius !== null && radius > 0) doc.radius = radius;
+  const count = num(/\.count\s*=\s*(-?[\d.]+)/);
+  if (count !== null) doc.count = Math.max(0, Math.round(count));
+
+  for (const key of ["health", "damage", "reload"]) {
+    const v = num(new RegExp(`\\.${key}\\s*=\\s*(-?[\\d.]+)`));
+    if (v !== null) st[key] = v;
+  }
+
+  // nested poison_damage first, so its inner .damage does not get mistaken
+  // for the top-level .damage above
+  const poison = src.match(/\.poison_damage\s*=\s*\{([^}]*)\}/);
+  if (poison) {
+    const d = poison[1].match(/\.damage\s*=\s*(-?[\d.]+)/);
+    const t = poison[1].match(/\.time\s*=\s*(-?[\d.]+)/);
+    if (d) st.poison_damage_damage = parseFloat(d[1]);
+    if (t) st.poison_damage_time = parseFloat(t[1]);
+  }
+
+  for (const key of ATTRIBUTE_ORDER) {
+    if (key === "poison_damage") continue;
+    if (key === "rotation_style") {
+      const m = src.match(/\.rotation_style\s*=\s*PetalAttributes\s*::\s*(\w+)/);
+      if (m) {
+        const i = ROTATION_ENUM.indexOf(m[1]);
+        if (i >= 0) st.rotation_style = i;
+      }
+      continue;
+    }
+    if (key === "spawns") {
+      const m = src.match(/\.spawns\s*=\s*MobID\s*::\s*(\w+)/);
+      if (m) {
+        const i = MOB_ENUM.indexOf(m[1]);
+        st.spawns = i >= 0 ? i : MOB_ENUM.length;
+      }
+      continue;
+    }
+    if (key === "equipment") {
+      const m = src.match(/\.equipment\s*=\s*EquipmentFlags\s*::\s*(\w+)/);
+      if (m) {
+        const i = EQUIPMENT_ENUM.indexOf(m[1]);
+        if (i >= 0) st.equipment = i;
+      }
+      continue;
+    }
+    const v = num(new RegExp(`\\.${key}\\s*=\\s*(-?[\\d.]+)`));
+    if (v === null) continue;
+    if (key === "icon_angle") doc.iconAngle = v;
+    st[key] = v;
+  }
+}
+
 export function parseCpp(src: string, radiusHint = 10): ParseResult {
   const warnings: string[] = [];
   const doc = emptyDoc();
@@ -44,7 +126,12 @@ export function parseCpp(src: string, radiusHint = 10): ParseResult {
   const nameM = src.match(/case\s+PetalID\s*::\s*k([A-Za-z0-9_]+)/);
   if (nameM) doc.name = nameM[1];
 
-  const scope = { r: radiusHint };
+  // a PETAL_DATA entry may be pasted alongside (or instead of) the draw case
+  if (/\.rarity\s*=|\.attributes\s*=|\.reload\s*=/.test(src))
+    parsePetalData(src, doc, warnings);
+
+  // the table's own radius wins over the caller's hint when present
+  const scope = { r: doc.radius || radiusHint };
   const num = (s: string) => evalExpr(s, scope);
 
   let cur: Shape | null = null;
