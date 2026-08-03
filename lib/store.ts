@@ -15,22 +15,31 @@ export interface PetalRecord {
 }
 
 /**
- * Publishing is unauthenticated, and the bot mirrors every publish into Discord,
- * so an open endpoint is a route into someone's server. A sliding window per IP
- * keeps that impractical without adding friction for normal use.
+ * Publish rate limiting. OFF by default -- publishing is unlimited unless
+ * PUBLISH_LIMIT_PER_HOUR is set to a positive number.
  *
- * In-memory, so on serverless it is per-instance rather than global. That is
- * still a meaningful brake, but it is not a hard guarantee -- a real one would
- * need the count in Postgres.
+ * Worth turning on only if the site is public AND the Discord mirror is
+ * enabled, since that combination turns an open endpoint into a route into
+ * someone's server. For local use it is pure friction.
+ *
+ * In-memory, so on serverless it is per-instance rather than global -- a hard
+ * guarantee would need the count in Postgres.
  */
-const RATE_MAX = 5;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
 const hits = new Map<string, number[]>();
 
+function rateMax(): number {
+  const v = Number(process.env.PUBLISH_LIMIT_PER_HOUR ?? 0);
+  return Number.isFinite(v) && v > 0 ? v : 0; // 0 = unlimited
+}
+
 export function rateLimit(ip: string): { ok: true } | { ok: false; retryAfter: number } {
+  const max = rateMax();
+  if (max <= 0) return { ok: true };
+
   const now = Date.now();
   const recent = (hits.get(ip) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
-  if (recent.length >= RATE_MAX) {
+  if (recent.length >= max) {
     const retryAfter = Math.ceil((RATE_WINDOW_MS - (now - recent[0])) / 1000);
     hits.set(ip, recent);
     return { ok: false, retryAfter };

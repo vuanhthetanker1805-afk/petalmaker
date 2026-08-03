@@ -131,19 +131,19 @@ const f = (n: number) => Math.abs(n) < 1e-9;
 export const STAT_FIELDS: StatField[] = [
   // ---------------------------------------------------------------- core
   {
-    key: "health", label: "Health", group: "core", unit: "flat", def: 0,
+    key: "health", label: "Health", group: "core", unit: "flat", def: 10,
     stacking: "perPetal", onData: true, min: 0, step: 1,
     observed: { min: 0, max: 1000, mode: 10, note: "Moon is 1000; most are 5-20" },
-    help: "HP of the petal entity itself. Petals cannot be poisoned (Health.cc:11).",
+    help: "HP of the petal entity itself. Petals cannot be poisoned (Health.cc:11). A petal with 0 health is deleted the moment it spawns.",
   },
   {
-    key: "damage", label: "Damage", group: "core", unit: "flat", def: 0,
+    key: "damage", label: "Damage", group: "core", unit: "flat", def: 10,
     stacking: "perPetal", onData: true, min: 0, step: 1,
     observed: { min: 0, max: 75, mode: 5 },
     help: "Dealt on every tick of contact (~20/sec while overlapping). Multiplied once at spawn by the loadout's damage factor.",
   },
   {
-    key: "reload", label: "Reload", group: "core", unit: "sec", def: 0,
+    key: "reload", label: "Reload", group: "core", unit: "sec", def: 2.5,
     stacking: "perPetal", onData: true, min: 0, step: 0.1,
     observed: { min: 0.05, max: 15, mode: 1 },
     help: "Seconds before a destroyed petal respawns. First spawn after equipping costs an extra 1s.",
