@@ -1,5 +1,6 @@
-import { A, toHex6 } from "@/src/engine/color";
+import { A, hsv, toHex6 } from "@/src/engine/color";
 import { docBounds } from "@/src/engine/render";
+import { RARITY_COLORS } from "@/src/data/rarity";
 import type { Cmd, Doc, Shape } from "@/src/engine/types";
 
 const n = (v: number) => {
@@ -93,6 +94,60 @@ export function exportSvg(doc: Doc, pad = 4): string {
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${n(-half)} ${n(-half)} ${n(size)} ${n(size)}" width="${Math.round(size * 4)}" height="${Math.round(size * 4)}">`,
     `  <title>${doc.name}</title>`,
     body,
+    `</svg>`,
+  ].join("\n");
+}
+
+/** rounded-rect path, matching Renderer::round_rect (Renderer.cc:293-303) */
+function roundRectPath(x: number, y: number, w: number, h: number, r: number): string {
+  return (
+    `M ${n(x + r)} ${n(y)} L ${n(x + w - r)} ${n(y)} Q ${n(x + w)} ${n(y)} ${n(x + w)} ${n(y + r)}` +
+    ` L ${n(x + w)} ${n(y + h - r)} Q ${n(x + w)} ${n(y + h)} ${n(x + w - r)} ${n(y + h)}` +
+    ` L ${n(x + r)} ${n(y + h)} Q ${n(x)} ${n(y + h)} ${n(x)} ${n(y + h - r)}` +
+    ` L ${n(x)} ${n(y + r)} Q ${n(x)} ${n(y)} ${n(x + r)} ${n(y)} Z`
+  );
+}
+
+/**
+ * The petal on its rarity tile, as it appears in the in-game inventory.
+ * Port of draw_loadout_background + draw_static_petal (Petal.cc:1267-1311):
+ * an HSV(rarity, 0.8) outer plate, a flat rarity inner square, then the petal
+ * at 0.833 scale, repeated `count` times around a clump ring.
+ *
+ * Used for the Discord embed -- a bare shape on transparency reads as a floating
+ * blob, whereas the tile is instantly recognisable as a petal.
+ */
+export function exportTileSvg(doc: Doc): string {
+  const rarity = Math.max(0, Math.min(RARITY_COLORS.length - 1, doc.rarity));
+  const col = RARITY_COLORS[rarity];
+  const shapes = doc.shapes.map(shapeToSvg).filter(Boolean).join("\n");
+
+  // Petal.cc:1310-1311 -- oversized artwork is clamped so it stays on the tile
+  let scale = 0.833;
+  if (doc.radius > 20) scale *= 20 / doc.radius;
+
+  const count = Math.max(1, Math.min(doc.count || 1, 4));
+  const clumpR = doc.stats?.clump_radius > 0 ? doc.stats.clump_radius : 10;
+
+  const copies: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const a = (i * 2 * Math.PI) / count;
+    const tx = count > 1 ? clumpR * Math.cos(a) : 0;
+    const ty = count > 1 ? clumpR * Math.sin(a) : 0;
+    const rot = ((a + doc.iconAngle) * 180) / Math.PI;
+    copies.push(
+      `  <g transform="translate(${n(tx)} ${n(ty)}) rotate(${n(rot)})">\n${shapes}\n  </g>`
+    );
+  }
+
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -30 60 60" width="512" height="512">`,
+    `  <title>${doc.name}</title>`,
+    `  <path d="${roundRectPath(-30, -30, 60, 60, 3)}" fill="${toHex6(hsv(col, 0.8))}" />`,
+    `  <path d="${roundRectPath(-25, -25, 50, 50, 2)}" fill="${toHex6(col)}" />`,
+    `  <g transform="scale(${n(scale)})">`,
+    copies.join("\n"),
+    `  </g>`,
     `</svg>`,
   ].join("\n");
 }

@@ -236,3 +236,61 @@ describe("document migration", () => {
     expect(d.stats.armor).toBe(7);
   });
 });
+
+describe("tile SVG for the Discord embed", () => {
+  const tileDoc = () => {
+    const d = emptyDoc();
+    d.name = "Frostbite";
+    d.rarity = 5; // Mythic -> 0xff1fdbde
+    d.radius = 9;
+    d.shapes = [{
+      id: "a", name: "body", visible: true, locked: false,
+      fill: 0xffe8f0f5, stroke: 0xffb8c4cc, lineWidth: 3,
+      roundCap: true, roundJoin: true, fillRule: "evenodd",
+      cmds: [{ t: "arc", x: 0, y: 0, r: 9 }],
+    }];
+    return d;
+  };
+
+  it("draws the rarity plate and inner square", async () => {
+    const { exportTileSvg } = await import("@/src/export/svg");
+    const { RARITY_COLORS } = await import("@/src/data/rarity");
+    const { hsv, toHex6 } = await import("@/src/engine/color");
+
+    const svg = exportTileSvg(tileDoc());
+    expect(svg).toContain('viewBox="-30 -30 60 60"');
+    // inner square is the flat rarity colour, plate is the HSV(_, 0.8) shade,
+    // derived rather than hardcoded so the assertion cannot drift from the maths
+    expect(svg).toContain(toHex6(RARITY_COLORS[5]));
+    expect(svg).toContain(toHex6(hsv(RARITY_COLORS[5], 0.8)));
+    expect(svg).toContain("#e8f0f5"); // the petal itself
+  });
+
+  it("clamps oversized artwork so it stays on the tile", async () => {
+    const { exportTileSvg } = await import("@/src/export/svg");
+    const d = tileDoc();
+    d.radius = 50; // Moon-sized
+    const svg = exportTileSvg(d);
+    // 0.833 * 20/50 = 0.333
+    expect(svg).toMatch(/scale\(0\.33/);
+  });
+
+  it("repeats the artwork for a clump", async () => {
+    const { exportTileSvg } = await import("@/src/export/svg");
+    const d = tileDoc();
+    d.count = 3;
+    const svg = exportTileSvg(d);
+    expect((svg.match(/<g transform="translate/g) ?? []).length).toBe(3);
+  });
+
+  it("a single petal is not offset", async () => {
+    const { exportTileSvg } = await import("@/src/export/svg");
+    const svg = exportTileSvg(tileDoc());
+    expect(svg).toContain('translate(0 0)');
+  });
+
+  it("survives a petal with no artwork", async () => {
+    const { exportTileSvg } = await import("@/src/export/svg");
+    expect(() => exportTileSvg(emptyDoc())).not.toThrow();
+  });
+});
