@@ -26,12 +26,15 @@ export default function EditorPage() {
   const [stage, setStage] = useState<Stage>("draw");
   const [rail, setRail] = useState<Rail>("shape");
   const [exportOpen, setExportOpen] = useState(true);
+  const authorRef = useRef<HTMLInputElement>(null);
   const restored = useRef(false);
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(LS_KEY);
       if (raw) setDoc(migrateDoc(JSON.parse(raw)), false);
+      const saved = localStorage.getItem("flrrpetalmaker.author");
+      if (saved && authorRef.current) authorRef.current.value = saved;
     } catch { /* corrupt or unavailable storage -- start fresh */ }
     restored.current = true;
   }, [setDoc]);
@@ -48,7 +51,11 @@ export default function EditorPage() {
       const res = await fetch("/api/petals", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(doc),
+        // author is a free-text credit; the Discord bot shows it on the post
+        body: JSON.stringify({
+          ...doc,
+          author: authorRef.current?.value.trim() || undefined,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "save failed");
@@ -97,6 +104,17 @@ export default function EditorPage() {
             onClick={() => { if (confirm("Clear the artwork? Stats are kept.")) setDoc((d) => ({ ...d, shapes: [] })); }}
             className="ctl h-7 px-2.5 text-[11px]"
           >Clear</button>
+          <input
+            ref={authorRef}
+            defaultValue=""
+            onChange={(e) => {
+              try { localStorage.setItem("flrrpetalmaker.author", e.target.value); } catch { /* quota */ }
+            }}
+            placeholder="your name (optional)"
+            maxLength={40}
+            className="ctl h-7 w-36 px-1.5 text-[11px]"
+            title="shown as the credit when this petal is posted to Discord"
+          />
           <button
             onClick={publish}
             disabled={saving || doc.shapes.length === 0}

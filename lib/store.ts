@@ -10,12 +10,44 @@ export interface PetalRecord {
   doc: Doc;
   createdAt: string;
   views: number;
+  /** optional free-text credit supplied at publish time */
+  author?: string;
+}
+
+/**
+ * Publishing is unauthenticated, and the bot mirrors every publish into Discord,
+ * so an open endpoint is a route into someone's server. A sliding window per IP
+ * keeps that impractical without adding friction for normal use.
+ *
+ * In-memory, so on serverless it is per-instance rather than global. That is
+ * still a meaningful brake, but it is not a hard guarantee -- a real one would
+ * need the count in Postgres.
+ */
+const RATE_MAX = 5;
+const RATE_WINDOW_MS = 60 * 60 * 1000;
+const hits = new Map<string, number[]>();
+
+export function rateLimit(ip: string): { ok: true } | { ok: false; retryAfter: number } {
+  const now = Date.now();
+  const recent = (hits.get(ip) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
+  if (recent.length >= RATE_MAX) {
+    const retryAfter = Math.ceil((RATE_WINDOW_MS - (now - recent[0])) / 1000);
+    hits.set(ip, recent);
+    return { ok: false, retryAfter };
+  }
+  recent.push(now);
+  hits.set(ip, recent);
+  // opportunistic cleanup so the map cannot grow without bound
+  if (hits.size > 5000) {
+    for (const [k, v] of hits) if (v.every((t) => now - t >= RATE_WINDOW_MS)) hits.delete(k);
+  }
+  return { ok: true };
 }
 
 export interface Store {
   list(limit?: number): Promise<PetalRecord[]>;
   get(id: string): Promise<PetalRecord | null>;
-  save(doc: Doc): Promise<PetalRecord>;
+  save(doc: Doc, author?: string): Promise<PetalRecord>;
 }
 
 const shortId = () => {
@@ -60,7 +92,7 @@ class FileStore implements Store {
     return rows[i];
   }
 
-  async save(doc: Doc) {
+  async save(doc: Doc, author?: string) {
     const rows = await this.readAll();
     const rec: PetalRecord = {
       id: shortId(),
@@ -69,6 +101,7 @@ class FileStore implements Store {
       doc,
       createdAt: new Date().toISOString(),
       views: 0,
+      ...(author ? { author } : {}),
     };
     rows.push(rec);
     await this.writeAll(rows);
@@ -92,7 +125,8 @@ class PostgresStore implements Store {
             rarity int not null default 0,
             doc jsonb not null,
             created_at timestamptz not null default now(),
-            views int not null default 0
+            views int not null default 0,
+            author text
           )
         `;
         return s;
@@ -104,7 +138,7 @@ class PostgresStore implements Store {
   async list(limit = 60) {
     const sql = await this.sql();
     const rows = await sql<PetalRecord[]>`
-      select id, name, rarity, doc, created_at as "createdAt", views
+      select id, name, rarity, doc, created_at as "createdAt", views, author
       from petals order by created_at desc limit ${limit}
     `;
     return rows.map((r) => ({ ...r, createdAt: String(r.createdAt) }));
@@ -114,18 +148,18 @@ class PostgresStore implements Store {
     const sql = await this.sql();
     const rows = await sql<PetalRecord[]>`
       update petals set views = views + 1 where id = ${id}
-      returning id, name, rarity, doc, created_at as "createdAt", views
+      returning id, name, rarity, doc, created_at as "createdAt", views, author
     `;
     return rows[0] ? { ...rows[0], createdAt: String(rows[0].createdAt) } : null;
   }
 
-  async save(doc: Doc) {
+  async save(doc: Doc, author?: string) {
     const sql = await this.sql();
     const id = shortId();
     const rows = await sql<PetalRecord[]>`
-      insert into petals (id, name, rarity, doc)
-      values (${id}, ${doc.name}, ${doc.rarity}, ${sql.json(doc as never)})
-      returning id, name, rarity, doc, created_at as "createdAt", views
+      insert into petals (id, name, rarity, doc, author)
+      values (${id}, ${doc.name}, ${doc.rarity}, ${sql.json(doc as never)}, ${author ?? null})
+      returning id, name, rarity, doc, created_at as "createdAt", views, author
     `;
     return { ...rows[0], createdAt: String(rows[0].createdAt) };
   }
